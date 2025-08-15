@@ -23,24 +23,19 @@ export function Notifications() {
     const [isVisible, setIsVisible] = useState(false);
 
     useEffect(() => {
-        // Підключаємось до WebSocket тільки якщо користувач залогінений
         if (user?.id) {
-            // URL нашого api-gateway
-            const socket: Socket = io('http://localhost:3000');
+            const socket: Socket = io({ path: '/socket.io/' });
 
             socket.on('connect', () => {
                 console.log('Connected to WebSocket server!');
-                // Реєструємо користувача на сервері, щоб отримувати персональні сповіщення
                 socket.emit('register', user.id);
             });
 
-            // Слухаємо подію 'new_recommendation'
             socket.on('new_recommendation', (data: { item: string }) => {
                 console.log('New recommendation received:', data.item);
                 setRecommendation(data.item);
                 setIsVisible(true);
 
-                // Ховаємо сповіщення через 5 секунд
                 setTimeout(() => {
                     setIsVisible(false);
                 }, 5000);
@@ -50,7 +45,6 @@ export function Notifications() {
                 console.log('Disconnected from WebSocket server.');
             });
 
-            // Відключаємось при розмонтуванні компонента
             return () => {
                 socket.disconnect();
             };
@@ -58,6 +52,8 @@ export function Notifications() {
     }, [user]);
 
     const visibleStyle = isVisible ? { opacity: 1 } : { opacity: 0 };
+
+    if (!recommendation) return null;
 
     return (
         <div style={{ ...notificationStyle, ...visibleStyle }}>

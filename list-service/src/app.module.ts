@@ -6,6 +6,7 @@ import { ListsModule } from './lists/lists.module';
 import { ShoppingList } from './lists/entities/list.entity';
 import { ListItem } from './lists/entities/list-item.entity';
 import { KafkaModule } from './kafka/kafka.module'; // <-- Імпортуємо KafkaModule
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { KafkaModule } from './kafka/kafka.module'; // <-- Імпортуємо 
     }),
     ListsModule,
     KafkaModule,
+    AdminModule,
   ],
 })
 export class AppModule {}

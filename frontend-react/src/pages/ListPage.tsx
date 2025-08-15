@@ -10,6 +10,8 @@ interface ListItem {
     name: string;
     quantity: number;
     completed: boolean;
+    price?: number;
+    store?: string;
 }
 
 interface ShoppingList {
@@ -50,8 +52,22 @@ export function ListPage() {
         if (!newItemName.trim() || !list) return;
 
         try {
-            const response = await axios.post(`/api/lists/${listId}/items`, { name: newItemName });
-            setList({ ...list, items: [...list.items, response.data] });
+            // 1. Додаємо товар до списку
+            const addItemResponse = await axios.post(`/api/lists/${listId}/items`, { name: newItemName });
+            const newItem: ListItem = addItemResponse.data;
+
+            // 2. Робимо запит на отримання ціни для нового товару
+            try {
+                const priceResponse = await axios.get(`/api/products/price?name=${newItem.name}`);
+                newItem.price = priceResponse.data.price;
+                newItem.store = priceResponse.data.store;
+            } catch (priceError) {
+                console.warn(`Could not fetch price for ${newItem.name}`);
+                // Якщо ціну не знайдено, нічого страшного, просто не будемо її показувати
+            }
+
+            // 3. Оновлюємо стан компонента
+            setList({ ...list, items: [...list.items, newItem] });
             setNewItemName('');
         } catch (err) {
             console.error('Failed to add item:', err);
@@ -111,10 +127,23 @@ export function ListPage() {
                             onChange={() => handleToggleItem(item.id, item.completed)}
                             style={{ width: '20px', height: '20px' }}
                         />
-                        <span style={{ textDecoration: item.completed ? 'line-through' : 'none', flexGrow: 1 }}>
-              {item.name} (кількість: {item.quantity})
-            </span>
-                        <button onClick={() => handleRemoveItem(item.id)} style={{ background: 'none', border: 'none', color: 'red', cursor: 'pointer', fontSize: '18px' }}>
+                        <div style={{flexGrow: 1}}>
+                          <span style={{textDecoration: item.completed ? 'line-through' : 'none'}}>
+                            {item.name}
+                          </span>
+                            {item.price && (
+                                <small style={{display: 'block', color: '#6c757d'}}>
+                                    Ціна: {item.price} UAH ({item.store})
+                                </small>
+                            )}
+                        </div>
+                        <button onClick={() => handleRemoveItem(item.id)} style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'red',
+                            cursor: 'pointer',
+                            fontSize: '18px'
+                        }}>
                             &times;
                         </button>
                     </li>

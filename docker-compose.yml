@@ -1,14 +1,22 @@
 version: '3.8'
 
 services:
-  # ... (сервіси frontend-react, api-gateway, user-service-web, user-service, list-service, postgres-db, kafka залишаються без змін) ...
-
   frontend-react:
     build:
       context: ./frontend-react
     container_name: frontend-react
     ports:
       - "8080:80"
+    restart: unless-stopped
+    depends_on:
+      - api-gateway
+
+  admin-vue:
+    build:
+      context: ./admin-vue
+    container_name: admin-vue
+    ports:
+      - "8081:80"
     restart: unless-stopped
     depends_on:
       - api-gateway
@@ -21,8 +29,12 @@ services:
     env_file:
       - ./api-gateway/.env
     depends_on:
-      - user-service-web
-      - list-service
+      user-service-web:
+        condition: service_started
+      list-service:
+        condition: service_started
+      product-catalog-service:
+        condition: service_started
 
   user-service-web:
     image: nginx:alpine
@@ -52,10 +64,23 @@ services:
     env_file:
       - ./list-service/.env
     depends_on:
-      kafka:
-        condition: service_started
       postgres-db:
         condition: service_healthy
+      kafka:
+        condition: service_healthy # <-- ОНОВЛЕНО
+
+  product-catalog-service:
+    build:
+      context: ./product-catalog-service
+    container_name: product-catalog-service
+    restart: unless-stopped
+    env_file:
+      - ./product-catalog-service/.env
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy # <-- ОНОВЛЕНО
 
   postgres-db:
     image: postgres:14-alpine
@@ -91,19 +116,18 @@ services:
       - KAFKA_CFG_CLUSTER_ID=9kPmCs0tQ_SounhTBlWXjg
     volumes:
       - kafka_data:/bitnami/kafka
-    healthcheck:
+    healthcheck: # <-- ОНОВЛЕНО
       test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list"]
       interval: 10s
       timeout: 5s
       retries: 15
 
-  # --- НОВИЙ СЕРВІС RABBITMQ ---
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: rabbitmq
     ports:
-      - "5672:5672"   # Порт для з'єднання
-      - "15672:15672" # Порт для веб-інтерфейсу
+      - "5672:5672"
+      - "15672:15672"
 
   recommendation-service:
     build:
@@ -113,13 +137,16 @@ services:
     environment:
       KAFKA_BROKER: 'kafka:9092'
       REDIS_HOST: 'redis'
-      RABBITMQ_HOST: 'rabbitmq' # Додаємо адресу RabbitMQ
+      RABBITMQ_HOST: 'rabbitmq'
     volumes:
       - ./recommendation-service:/app
     depends_on:
-      - kafka
-      - redis
-      - rabbitmq # Додаємо залежність
+      kafka:
+        condition: service_healthy # <-- ОНОВЛЕНО
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
 
   redis:
     image: redis:alpine
