@@ -35,6 +35,8 @@ services:
         condition: service_started
       product-catalog-service:
         condition: service_started
+      delivery-service:
+        condition: service_started
 
   user-service-web:
     image: nginx:alpine
@@ -81,6 +83,19 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy # <-- ОНОВЛЕНО
+    volumes:
+        - uploads_data:/usr/src/app/uploads
+
+  delivery-service:
+    build:
+      context: ./delivery-service
+    container_name: delivery-service
+    restart: unless-stopped
+    env_file: # <-- ДОДАНО
+      - ./delivery-service/.env
+    depends_on:
+      postgres-db:
+        condition: service_healthy
 
   postgres-db:
     image: postgres:14-alpine
@@ -151,8 +166,8 @@ services:
   redis:
     image: redis:alpine
     container_name: redis
-    ports:
-      - "6379:6379"
+#    ports:
+#      - "6379:6379"
     volumes:
       - redis_data:/data
 
@@ -160,3 +175,4 @@ volumes:
   postgres-data:
   kafka_data:
   redis_data:
+  uploads_data:

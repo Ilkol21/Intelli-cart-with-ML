@@ -1,38 +1,86 @@
-// src/products/products.service.ts
-import { Injectable } from '@nestjs/common';
-import { HttpService } from '@nestjs/axios';
-import { firstValueFrom } from 'rxjs';
-import { AxiosResponse } from 'axios';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import {Not, Raw, Repository} from 'typeorm';
+import { Product } from '../entities/product.entity';
+import { CreateProductDto } from '../dto/create-product.dto';
+import { UpdateProductDto } from '../dto/update-product.dto';
 
 @Injectable()
 export class ProductsService {
-    private readonly mealApiUrl = 'https://www.themealdb.com/api/json/v1/1/search.php';
+    constructor(
+        @InjectRepository(Product)
+        private readonly productRepository: Repository<Product>,
+    ) {}
 
-    constructor(private readonly httpService: HttpService) {}
+    // Створення продукту
+    async create(createProductDto: CreateProductDto): Promise<Product> {
+        // ⚡ створюємо plain object
+        const product = this.productRepository.create({
+            name: createProductDto.name,
+            description: createProductDto.description,
+            price: createProductDto.price,
+            category: createProductDto.category,
+            imageUrl: createProductDto.imageUrl,
+        });
+        return this.productRepository.save(product);
+    }
 
-    // Знаходить товар за назвою, роблячи запит до TheMealDB
-    async findPriceByName(name: string): Promise<{ price: number; store: string } | null> {
-        try {
-            const response: AxiosResponse = await firstValueFrom(
-                this.httpService.get(this.mealApiUrl, { params: { s: name } }),
-            );
+    async findAll(): Promise<Product[]> {
+        return this.productRepository.find();
+    }
 
-            // Якщо API знайшло страву
-            if (response.data && response.data.meals) {
-                const meal = response.data.meals[0];
-                // Імітуємо ціну на основі ID страви для стабільності
-                const price = (parseInt(meal.idMeal) % 200) + 50.5; // Генеруємо ціну від 50.5 до 250.5
+    async findOne(id: string): Promise<Product> {
+        const product = await this.productRepository.findOneBy({ id });
+        if (!product) {
+            throw new NotFoundException(`Product with ID "${id}" not found`);
+        }
+        return product;
+    }
 
-                return {
-                    price: parseFloat(price.toFixed(2)),
-                    store: 'TheMealDB Supermarket',
-                };
-            }
+    async findByCategory(category: string): Promise<Product[]> {
+        return this.productRepository.find({ where: { category } });
+    }
 
-            return null;
-        } catch (error) {
-            console.error(`Failed to fetch price for ${name}:`, error);
-            return null;
+    // Оновлення продукту
+    async update(id: string, updateProductDto: UpdateProductDto): Promise<Product> {
+        const product = await this.productRepository.preload({
+            id,
+            name: updateProductDto.name,
+            description: updateProductDto.description,
+            price: updateProductDto.price,
+            category: updateProductDto.category,
+            imageUrl: updateProductDto.imageUrl,
+        });
+
+        if (!product) {
+            throw new NotFoundException(`Product with ID "${id}" not found`);
+        }
+        return this.productRepository.save(product);
+    }
+
+    async remove(id: string): Promise<void> {
+        const result = await this.productRepository.delete(id);
+        if (result.affected === 0) {
+            throw new NotFoundException(`Product with ID "${id}" not found`);
         }
     }
+    async findByName(name: string): Promise<Product | null> {
+        // Шукаємо товар, ігноруючи регістр
+        return this.productRepository.findOne({ where: { name: Raw(alias => `LOWER(${alias}) = LOWER(:name)`, { name }) } });
+    }
+
+    // --- ДОДАНО ---
+    async findByCategory(category: string, currentProductId?: string): Promise<Product[]> {
+        // Шукаємо інші товари в тій самій категорії, виключаючи поточний, якщо він вказаний
+        const whereClause: any = { category };
+        if (currentProductId) {
+            whereClause.id = Not(currentProductId);
+        }
+
+        return this.productRepository.find({
+            where: whereClause,
+            take: 5 // Обмежимо кількість рекомендацій
+        });
+    }
+
 }

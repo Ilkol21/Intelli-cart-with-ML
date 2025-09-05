@@ -4,19 +4,21 @@ import { authStore } from './stores/auth'
 </script>
 
 <template>
-  <div>
-    <header>
-      <div class="wrapper">
-        <button v-if="authStore.token" @click="authStore.logout()" class="logout-button">
-          Вийти
-        </button>
-        <h1>Intelli-Cart Admin</h1>
-      </div>
-    </header>
-
-    <RouterView />
-  </div>
+  <header>
+    <div class="wrapper">
+      <h1>Intelli-Cart Admin</h1>
+      <nav v-if="authStore.token">
+        <RouterLink to="/">Дашборд</RouterLink>
+        <RouterLink to="/products">Товари</RouterLink>
+      </nav>
+      <button v-if="authStore.token" @click="authStore.logout()" class="logout-button">
+        Вийти
+      </button>
+    </div>
+  </header>
+  <RouterView />
 </template>
+
 
 <style scoped>
 header {
@@ -54,5 +56,17 @@ h1 {
 
 .logout-button:hover {
   background-color: #c82333;
+}
+
+nav {
+  display: flex;
+  gap: 20px;
+}
+nav a {
+  text-decoration: none;
+  color: var(--color-text);
+}
+nav a.router-link-exact-active {
+  font-weight: bold;
 }
 </style>

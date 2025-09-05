@@ -9,7 +9,11 @@ export class AdminGuard implements CanActivate {
     ): boolean | Promise<boolean> | Observable<boolean> {
         const request = context.switchToHttp().getRequest();
         const user = request.user;
-        
+
+        console.log('--- AdminGuard Check ---');
+        console.log('Timestamp:', new Date().toISOString());
+        console.log('User object received from token payload:', user);
+
         if (user && user.role === 'admin') {
             return true;
         }

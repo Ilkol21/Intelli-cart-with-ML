@@ -25,9 +25,6 @@ COPY . .
 # Копіювання залежностей з попереднього етапу
 COPY --from=vendor /app/vendor/ vendor/
 
-# Надаємо широкі права доступу до папок, необхідних Laravel для запису.
-# Це найпростіший і найнадійніший спосіб уникнути проблем з правами
-# доступу в локальному середовищі розробки.
 RUN chown -R www-data:www-data storage bootstrap/cache && \
     chmod -R 775 storage bootstrap/cache
 

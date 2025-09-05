@@ -4,7 +4,7 @@ import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { styles } from '../styles';
 
-// Інтерфейси для типізації
+// Оновлюємо інтерфейси
 interface ListItem {
     id: string;
     name: string;
@@ -12,6 +12,7 @@ interface ListItem {
     completed: boolean;
     price?: number;
     store?: string;
+    imageUrl?: string;
 }
 
 interface ShoppingList {
@@ -27,51 +28,47 @@ export function ListPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
-    useEffect(() => {
-        const fetchList = async () => {
-            try {
-                setLoading(true);
-                setError('');
-                const response = await axios.get(`/api/lists/${listId}`);
-                setList(response.data);
-            } catch (err) {
-                console.error('Failed to fetch list details:', err);
-                setError('Не вдалося завантажити список.');
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        if (listId) {
-            fetchList();
+    const fetchList = async () => {
+        if (!listId) return;
+        try {
+            setLoading(true);
+            setError('');
+            const response = await axios.get(`/api/lists/${listId}`);
+            setList(response.data);
+        } catch (err) {
+            console.error('Failed to fetch list details:', err);
+            setError('Не вдалося завантажити список.');
+        } finally {
+            setLoading(false);
         }
+    };
+
+    useEffect(() => {
+        fetchList();
     }, [listId]);
 
+    // --- ОНОВЛЕНА ЛОГІКА ---
     const handleAddItem = async (e: FormEvent) => {
         e.preventDefault();
         if (!newItemName.trim() || !list) return;
 
         try {
-            // 1. Додаємо товар до списку
-            const addItemResponse = await axios.post(`/api/lists/${listId}/items`, { name: newItemName });
-            const newItem: ListItem = addItemResponse.data;
+            setError('');
+            // 1. Спочатку робимо запит на отримання повної інформації про товар
+            const productInfoResponse = await axios.get(`/api/products/info?name=${newItemName}`);
+            const productInfo = productInfoResponse.data;
 
-            // 2. Робимо запит на отримання ціни для нового товару
-            try {
-                const priceResponse = await axios.get(`/api/products/price?name=${newItem.name}`);
-                newItem.price = priceResponse.data.price;
-                newItem.store = priceResponse.data.store;
-            } catch (priceError) {
-                console.warn(`Could not fetch price for ${newItem.name}`);
-                // Якщо ціну не знайдено, нічого страшного, просто не будемо її показувати
-            }
+            // 2. Додаємо товар до нашого списку покупок
+            const addItemResponse = await axios.post(`/api/lists/${listId}/items`, { name: productInfo.name });
 
-            // 3. Оновлюємо стан компонента
-            setList({ ...list, items: [...list.items, newItem] });
+            // 3. Об'єднуємо дані та оновлюємо стан
+            const newItemWithDetails: ListItem = { ...addItemResponse.data, ...productInfo };
+            setList({ ...list, items: [...list.items, newItemWithDetails] });
             setNewItemName('');
+
         } catch (err) {
             console.error('Failed to add item:', err);
-            setError('Не вдалося додати товар.');
+            setError('Не вдалося додати товар або знайти інформацію про нього.');
         }
     };
 
@@ -79,7 +76,7 @@ export function ListPage() {
         if (!list) return;
         try {
             const response = await axios.patch(`/api/lists/items/${itemId}`, { completed: !completed });
-            const updatedItems = list.items.map(item => item.id === itemId ? response.data : item);
+            const updatedItems = list.items.map(item => item.id === itemId ? { ...item, ...response.data } : item);
             setList({ ...list, items: updatedItems });
         } catch (err) {
             console.error('Failed to update item:', err);
@@ -109,7 +106,7 @@ export function ListPage() {
             <form onSubmit={handleAddItem} style={{ ...styles.form, marginBottom: '20px' }}>
                 <input
                     type="text"
-                    placeholder="Новий товар"
+                    placeholder="Назва страви (напр. Arrabiata)"
                     value={newItemName}
                     onChange={(e) => setNewItemName(e.target.value)}
                     style={styles.input}
@@ -121,29 +118,24 @@ export function ListPage() {
             <ul style={{ listStyle: 'none', padding: 0 }}>
                 {list.items.map((item) => (
                     <li key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', borderBottom: '1px solid #eee' }}>
+                        <img src={item.imageUrl} alt={item.name} style={{ width: '50px', height: '50px', borderRadius: '4px', objectFit: 'cover' }} />
+                        <div style={{ flexGrow: 1 }}>
+              <span style={{ textDecoration: item.completed ? 'line-through' : 'none', fontWeight: 'bold' }}>
+                {item.name}
+              </span>
+                            {item.price && (
+                                <small style={{ display: 'block', color: '#6c757d' }}>
+                                    Ціна: {item.price} UAH ({item.store})
+                                </small>
+                            )}
+                        </div>
                         <input
                             type="checkbox"
                             checked={item.completed}
                             onChange={() => handleToggleItem(item.id, item.completed)}
                             style={{ width: '20px', height: '20px' }}
                         />
-                        <div style={{flexGrow: 1}}>
-                          <span style={{textDecoration: item.completed ? 'line-through' : 'none'}}>
-                            {item.name}
-                          </span>
-                            {item.price && (
-                                <small style={{display: 'block', color: '#6c757d'}}>
-                                    Ціна: {item.price} UAH ({item.store})
-                                </small>
-                            )}
-                        </div>
-                        <button onClick={() => handleRemoveItem(item.id)} style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'red',
-                            cursor: 'pointer',
-                            fontSize: '18px'
-                        }}>
+                        <button onClick={() => handleRemoveItem(item.id)} style={{ background: 'none', border: 'none', color: 'red', cursor: 'pointer', fontSize: '18px' }}>
                             &times;
                         </button>
                     </li>

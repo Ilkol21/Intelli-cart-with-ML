@@ -2,10 +2,11 @@
 import React, { useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { styles } from '../styles'; // Створимо цей файл зі стилями
+import { CartContext } from '../context/CartContext';
 
 export function Header() {
     const { token, user, setAuthToken } = useContext(AuthContext);
+    const { cartItems } = useContext(CartContext);
     const navigate = useNavigate();
 
     const handleLogout = () => {
@@ -13,19 +14,23 @@ export function Header() {
         navigate('/login');
     };
 
+    const totalItems = cartItems.reduce((sum: number, item: any) => sum + item.quantity, 0);
+
     return (
         <header style={{ marginBottom: '20px', borderBottom: '1px solid #ccc', paddingBottom: '10px' }}>
-            <div style={styles.nav}>
-                <h1>Intelli-Cart</h1>
-                <nav>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h1><Link to="/catalog" style={{ textDecoration: 'none', color: 'inherit' }}>Intelli-Delivery</Link></h1>
+                <nav style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                     {token ? (
                         <>
-                            <span style={{ marginRight: '15px' }}>Вітаємо, {user?.name}!</span>
-                            <button onClick={handleLogout} style={{...styles.button, backgroundColor: '#6c757d'}}>Logout</button>
+                            <Link to="/catalog">Каталог</Link>
+                            <Link to="/checkout">Кошик ({totalItems})</Link>
+                            <span>Вітаємо, {user?.name}!</span>
+                            <button onClick={handleLogout}>Вийти</button>
                         </>
                     ) : (
                         <>
-                            <Link to="/login" style={{ marginRight: '10px' }}>Login</Link>
+                            <Link to="/login">Login</Link>
                             <Link to="/register">Register</Link>
                         </>
                     )}

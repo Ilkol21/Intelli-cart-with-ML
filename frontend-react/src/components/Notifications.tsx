@@ -1,4 +1,3 @@
-// src/components/Notifications.tsx
 import React, { useState, useEffect, useContext } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { AuthContext } from '../context/AuthContext';
@@ -19,32 +18,39 @@ const notificationStyle: React.CSSProperties = {
 
 export function Notifications() {
     const { user } = useContext(AuthContext);
-    const [recommendation, setRecommendation] = useState<string | null>(null);
+    const [message, setMessage] = useState<string | null>(null);
     const [isVisible, setIsVisible] = useState(false);
 
     useEffect(() => {
+        // Підключаємось до WebSocket тільки якщо є ID користувача
         if (user?.id) {
             const socket: Socket = io({ path: '/socket.io/' });
 
             socket.on('connect', () => {
                 console.log('Connected to WebSocket server!');
+                // Реєструємо користувача на сервері, щоб отримувати персональні сповіщення
                 socket.emit('register', user.id);
             });
 
-            socket.on('new_recommendation', (data: { item: string }) => {
-                console.log('New recommendation received:', data.item);
-                setRecommendation(data.item);
-                setIsVisible(true);
+            // Слухаємо одну подію і показуємо будь-яке повідомлення, що прийшло
+            socket.on('new_recommendation', (data: { alertMessage?: string }) => {
+                if (data.alertMessage) {
+                    console.log('New notification received:', data.alertMessage);
+                    setMessage(data.alertMessage);
+                    setIsVisible(true);
 
-                setTimeout(() => {
-                    setIsVisible(false);
-                }, 5000);
+                    // Ховаємо сповіщення через 5 секунд
+                    setTimeout(() => {
+                        setIsVisible(false);
+                    }, 5000);
+                }
             });
 
             socket.on('disconnect', () => {
                 console.log('Disconnected from WebSocket server.');
             });
 
+            // Відключаємось при розмонтуванні компонента
             return () => {
                 socket.disconnect();
             };
@@ -53,11 +59,11 @@ export function Notifications() {
 
     const visibleStyle = isVisible ? { opacity: 1 } : { opacity: 0 };
 
-    if (!recommendation) return null;
+    if (!message) return null;
 
     return (
         <div style={{ ...notificationStyle, ...visibleStyle }}>
-            <strong>Рекомендація:</strong> Можливо, вам також потрібен "{recommendation}"?
+            <strong>Підказка:</strong> {message}
         </div>
     );
 }

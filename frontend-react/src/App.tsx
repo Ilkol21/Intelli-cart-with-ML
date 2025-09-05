@@ -1,76 +1,46 @@
 // src/App.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useContext } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import axios from 'axios';
-
-import { AuthContext } from './context/AuthContext';
+import { AuthContext, AuthProvider } from './context/AuthContext';
+import { CartProvider } from './context/CartContext';
 import { Header } from './components/Header';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
-import { ShoppingListsPage } from './pages/ShoppingListsPage';
-import { ListPage } from './pages/ListPage';
-import { Notifications } from './components/Notifications'; // <-- Імпортуємо
+import { CatalogPage } from './pages/CatalogPage';
+import { CheckoutPage } from './pages/CheckoutPage';
+import { Notifications } from './components/Notifications';
 
-function App() {
-  const [token, setToken] = useState<string | null>(null);
-  const [user, setUser] = useState<any>(null);
+function AppContent() {
+    const { token } = useContext(AuthContext);
 
-  const setAuthToken = (newToken: string | null, userData: any = null) => {
-    if (newToken) {
-      localStorage.setItem('token', newToken);
-      localStorage.setItem('user', JSON.stringify(userData));
-      axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-    } else {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      delete axios.defaults.headers.common['Authorization'];
-    }
-    setToken(newToken);
-    setUser(userData);
-  };
-
-  useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    if (storedToken) {
-      setAuthToken(storedToken, storedUser ? JSON.parse(storedUser) : null);
-    }
-  }, []);
-
-  return (
-      <AuthContext.Provider value={{ token, user, setAuthToken }}>
-        <BrowserRouter>
-          <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
+    return (
+        <div style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '1200px', margin: '0 auto' }}>
             <Header />
             <main>
-              <Routes>
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<RegisterPage />} />
-                <Route
-                    path="/lists"
-                    element={
-                      <ProtectedRoute>
-                        <ShoppingListsPage />
-                      </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/lists/:listId"
-                    element={
-                      <ProtectedRoute>
-                        <ListPage />
-                      </ProtectedRoute>
-                    }
-                />
-                <Route path="*" element={<Navigate to={token ? "/lists" : "/login"} />} />
-              </Routes>
+                <Routes>
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/register" element={<RegisterPage />} />
+                    <Route path="/catalog" element={<ProtectedRoute><CatalogPage /></ProtectedRoute>} />
+                    <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
+                    <Route path="*" element={<Navigate to={token ? "/catalog" : "/login"} />} />
+                </Routes>
             </main>
             {token && <Notifications />}
-          </div>
-        </BrowserRouter>
-      </AuthContext.Provider>
-  );
+        </div>
+    );
+}
+
+function App() {
+    return (
+        <AuthProvider>
+            <CartProvider>
+                <BrowserRouter>
+                    <AppContent />
+                </BrowserRouter>
+            </CartProvider>
+        </AuthProvider>
+    );
 }
 
 export default App;

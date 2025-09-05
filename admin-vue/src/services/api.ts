@@ -1,24 +1,29 @@
-// admin-vue/src/services/api.ts
-import axios from "axios";
+// src/services/api.ts
+import axios from 'axios';
 
+// Створюємо екземпляр axios БЕЗ імпорту authStore на верхньому рівні
 const apiClient = axios.create({
-  baseURL: '/api', // Nginx автоматично перенаправить це на наш api-gateway
+  baseURL: '/api',
 });
 
-// Функція для встановлення JWT-токена в заголовки
-export const setAuthToken = (token: string | null) => {
-  if (token) {
-    apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-  } else {
-    delete apiClient.defaults.headers.common['Authorization'];
+// Додаємо перехоплювач запитів
+apiClient.interceptors.request.use(
+  async (config) => {
+    // ІМПОРТУЄМО authStore ДИНАМІЧНО ПРЯМО ТУТ
+    // Це гарантує, що модуль auth.ts вже повністю завантажений
+    const { authStore } = await import('@/stores/auth');
+
+    const token = authStore.token;
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    // Для перевірки можна додати логування
+    // console.log('Request Headers:', config.headers);
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
-};
+);
 
-// Функції для отримання статистики
-export const fetchUserStats = () => {
-  return apiClient.get('/admin/stats/users');
-};
-
-export const fetchListStats = () => {
-  return apiClient.get('/admin/stats/lists');
-};
+export default apiClient;
