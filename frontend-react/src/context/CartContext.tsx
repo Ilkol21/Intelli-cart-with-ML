@@ -1,10 +1,13 @@
 // src/context/CartContext.tsx
-import React, { createContext, useState, ReactNode } from 'react';
+import React, { createContext, useState, useContext, ReactNode } from 'react';
+import apiClient from '../services/apiClient';
+import { AuthContext } from './AuthContext';
 
 export const CartContext = createContext<any>(null);
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
     const [cartItems, setCartItems] = useState<any[]>([]);
+    const auth = useContext(AuthContext);
 
     const addToCart = (product: any) => {
         setCartItems((prevItems) => {
@@ -16,6 +19,11 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
             }
             return [...prevItems, { ...product, quantity: 1 }];
         });
+
+        // Надсилаємо подію перегляду — тільки для залогінених користувачів
+        if (auth?.token && product.id) {
+            apiClient.patch(`/products/${product.id}/view`).catch(() => {});
+        }
     };
 
     // --- НОВА ФУНКЦІЯ ---

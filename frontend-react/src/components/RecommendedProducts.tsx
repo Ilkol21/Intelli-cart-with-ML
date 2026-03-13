@@ -1,53 +1,85 @@
-// src/components/RecommendedProducts.tsx
-import React, { useState, useEffect, useContext } from 'react';
-import axios from 'axios';
+import React, { useContext, useEffect, useState } from 'react';
+import { RecommendationContext } from '../context/RecommendationContext';
 import { CartContext } from '../context/CartContext';
+import apiClient from '../services/apiClient';
+import { styles } from '../styles';
+import { AxiosResponse } from 'axios';
 
-const styles = {
-    container: { overflowX: 'auto', display: 'flex', gap: '15px', padding: '10px 0' } as React.CSSProperties,
-    card: { flex: '0 0 180px', border: '1px solid #ddd', borderRadius: '8px', overflow: 'hidden', padding: '10px', textAlign: 'center' } as React.CSSProperties,
-    img: { width: '100%', height: '100px', objectFit: 'cover', marginBottom: '10px' } as React.CSSProperties,
-    title: { fontWeight: 'bold', fontSize: '14px', height: '40px' } as React.CSSProperties,
-    button: { width: '100%', padding: '8px', marginTop: '10px', cursor: 'pointer' } as React.CSSProperties,
-};
+// Інтерфейс для товару
+interface Product {
+    id: string;
+    name: string;
+    description: string;
+    price: number | string;
+    imageUrl: string;
+    category: string;
+}
 
 export function RecommendedProducts() {
-    const [recommendations, setRecommendations] = useState<any[]>([]);
+    const { recommendations } = useContext(RecommendationContext);
     const { addToCart } = useContext(CartContext);
+    const [recommendedProducts, setRecommendedProducts] = useState<Product[]>([]);
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        const fetchRecommendations = async () => {
-            try {
-                const terms = ['Chicken', 'Beef', 'Salmon', 'Pasta'];
-                const randomTerm = terms[Math.floor(Math.random() * terms.length)];
-                const response = await axios.get(`/api/products/info?name=${randomTerm}`);
+        const fetchProductDetails = async () => {
+            if (recommendations.length === 0) {
+                setRecommendedProducts([]);
+                return;
+            }
 
-                // Для демонстрації додамо кілька однакових товарів
-                setRecommendations([response.data, response.data, response.data, response.data]);
+            setLoading(true);
+            try {
+                // Кожен запит повертає Promise<AxiosResponse<Product>>
+                const productPromises = recommendations.map(rec =>
+                    apiClient.get<Product>(`/products/info?name=${rec.item}`)
+                );
+
+                // Явно типізуємо responses як масив результатів
+                const responses = await Promise.allSettled(productPromises) as PromiseSettledResult<AxiosResponse<Product>>[];
+
+                const successfulProducts: Product[] = responses
+                    .filter((res): res is PromiseFulfilledResult<AxiosResponse<Product>> => res.status === "fulfilled")
+                    .map(res => res.value.data);
+
+                // Унікальні товари за id
+                const uniqueProducts = Array.from(
+                    new Map(successfulProducts.map(p => [p.id, p])).values()
+                );
+
+                setRecommendedProducts(uniqueProducts);
             } catch (error) {
-                console.error("Failed to fetch recommendations", error);
+                console.error("Failed to fetch product details for recommendations", error);
+            } finally {
+                setLoading(false);
             }
         };
-        fetchRecommendations();
-    }, []);
+
+        fetchProductDetails();
+    }, [recommendations]);
+
 
     if (recommendations.length === 0) {
         return null;
     }
 
     return (
-        <div style={{ margin: '40px 0' }}>
-            <h3>Разом із цим замовляють</h3>
-            <div style={styles.container}>
-                {recommendations.map((product, index) => (
-                    <div key={`${product.id}-${index}`} style={styles.card}>
-                        <img src={product.imageUrl} alt={product.name} style={styles.img} />
-                        <p style={styles.title}>{product.name}</p>
-                        <p>Ціна: {product.price} UAH</p>
-                        <button onClick={() => addToCart(product)} style={styles.button}>Додати</button>
-                    </div>
-                ))}
-            </div>
+        <div style={{ marginBottom: '40px' }}>
+            <h3>Вам може сподобатися</h3>
+            {loading ? <p>Завантаження рекомендацій...</p> : (
+                <div style={styles.catalogGrid}>
+                    {recommendedProducts.map((product) => (
+                        <div key={product.id} style={styles.productCard}>
+                            <img src={`http://localhost:8080${product.imageUrl}`} alt={product.name} style={styles.productImage} />
+                            <h4>{product.name}</h4>
+                            <p>{Number(product.price).toFixed(2)} UAH</p>
+                            <button onClick={() => addToCart(product)} style={styles.button}>
+                                Додати в кошик
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }

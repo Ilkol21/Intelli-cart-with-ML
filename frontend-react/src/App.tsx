@@ -1,14 +1,16 @@
-// src/App.tsx
 import React, { useContext } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthContext, AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
+import { RecommendationProvider } from './context/RecommendationContext';
 import { Header } from './components/Header';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { CatalogPage } from './pages/CatalogPage';
 import { CheckoutPage } from './pages/CheckoutPage';
+import { OrderHistoryPage } from './pages/OrderHistoryPage';
+import { OrderDetailsPage } from './pages/OrderDetailsPage';
 import { Notifications } from './components/Notifications';
 
 function AppContent() {
@@ -17,12 +19,14 @@ function AppContent() {
     return (
         <div style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '1200px', margin: '0 auto' }}>
             <Header />
-            <main>
+            <main style={{ marginTop: '20px' }}>
                 <Routes>
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/register" element={<RegisterPage />} />
                     <Route path="/catalog" element={<ProtectedRoute><CatalogPage /></ProtectedRoute>} />
                     <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
+                    <Route path="/my-orders" element={<ProtectedRoute><OrderHistoryPage /></ProtectedRoute>} />
+                    <Route path="/my-orders/:id" element={<ProtectedRoute><OrderDetailsPage /></ProtectedRoute>} />
                     <Route path="*" element={<Navigate to={token ? "/catalog" : "/login"} />} />
                 </Routes>
             </main>
@@ -35,9 +39,11 @@ function App() {
     return (
         <AuthProvider>
             <CartProvider>
-                <BrowserRouter>
-                    <AppContent />
-                </BrowserRouter>
+                <RecommendationProvider>
+                    <BrowserRouter>
+                        <AppContent />
+                    </BrowserRouter>
+                </RecommendationProvider>
             </CartProvider>
         </AuthProvider>
     );

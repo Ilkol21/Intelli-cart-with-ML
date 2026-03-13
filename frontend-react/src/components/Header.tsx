@@ -25,6 +25,7 @@ export function Header() {
                         <>
                             <Link to="/catalog">Каталог</Link>
                             <Link to="/checkout">Кошик ({totalItems})</Link>
+                            <Link to="/my-orders">Мої замовлення</Link>
                             <span>Вітаємо, {user?.name}!</span>
                             <button onClick={handleLogout}>Вийти</button>
                         </>

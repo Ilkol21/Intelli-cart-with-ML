@@ -1,20 +1,21 @@
 import React, { useState, useEffect, useContext } from 'react';
-import apiClient from '../services/apiClient'; // Використовуємо наш централізований клієнт
 import { CartContext } from '../context/CartContext';
+import apiClient from '../services/apiClient';
 import { styles } from '../styles';
+import { RecommendedProducts } from '../components/RecommendedProducts'; // <-- ДОДАНО ІМПОРТ
 
-// Інтерфейс для товару, який ми отримуємо з бекенду
+// Інтерфейс для товару
 interface Product {
     id: string;
     name: string;
     description: string;
-    price: number;
+    price: number | string;
     imageUrl: string;
     category: string;
 }
 
 export function CatalogPage() {
-    const [products, setProducts] = useState<Product[]>([]);
+    const [groupedProducts, setGroupedProducts] = useState<{ [key: string]: Product[] }>({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const { addToCart } = useContext(CartContext);
@@ -24,10 +25,18 @@ export function CatalogPage() {
             try {
                 setLoading(true);
                 setError('');
-                // --- ОСНОВНА ЗМІНА ТУТ ---
-                // Завантажуємо всі товари з нашого каталогу
                 const response = await apiClient.get('/products');
-                setProducts(response.data);
+
+                const grouped = response.data.reduce((acc: { [key: string]: Product[] }, product: Product) => {
+                    const category = product.category || 'Uncategorized';
+                    if (!acc[category]) {
+                        acc[category] = [];
+                    }
+                    acc[category].push(product);
+                    return acc;
+                }, {});
+
+                setGroupedProducts(grouped);
             } catch (err) {
                 console.error('Failed to fetch products:', err);
                 setError('Не вдалося завантажити каталог товарів.');
@@ -44,22 +53,32 @@ export function CatalogPage() {
 
     return (
         <div>
+            {/* --- ДОДАНО СЕКЦІЮ РЕКОМЕНДАЦІЙ --- */}
+            <RecommendedProducts />
+
             <h2>Каталог товарів</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '20px' }}>
-                {products.map((product) => (
-                    <div key={product.id} style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '15px', textAlign: 'center' }}>
-                        <img src={product.imageUrl || 'https://placehold.co/200x150'} alt={product.name} style={{ maxWidth: '100%', height: '150px', objectFit: 'cover' }} />
-                        <h3 style={{ fontSize: '1rem', height: '40px' }}>{product.name}</h3>
-                        <p style={{ fontWeight: 'bold' }}>{product.price} UAH</p>
-                        <button
-                            onClick={() => addToCart(product)}
-                            style={styles.button}
-                        >
-                            Додати в кошик
-                        </button>
+
+            {Object.keys(groupedProducts).length > 0 ? (
+                Object.keys(groupedProducts).map(category => (
+                    <div key={category} style={{ marginBottom: '40px' }}>
+                        <h3 style={{ borderBottom: '2px solid #eee', paddingBottom: '10px' }}>{category}</h3>
+                        <div style={styles.catalogGrid}>
+                            {groupedProducts[category].map(product => (
+                                <div key={product.id} style={styles.productCard}>
+                                    <img src={`http://localhost:8080${product.imageUrl}`} alt={product.name} style={styles.productImage} />
+                                    <h4>{product.name}</h4>
+                                    <p>{Number(product.price).toFixed(2)} UAH</p>
+                                    <button onClick={() => addToCart(product)} style={styles.button}>
+                                        Додати в кошик
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                ))}
-            </div>
+                ))
+            ) : (
+                <p>Товари не знайдено. Будь ласка, додайте їх через адмін-панель.</p>
+            )}
         </div>
     );
 }

@@ -4,6 +4,7 @@ import {
     Post,
     Put,
     Delete,
+    Patch,
     Req,
     UseGuards,
     HttpException,
@@ -13,6 +14,7 @@ import {
     Body,
     UseInterceptors,
     UploadedFile,
+    Query,
 } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
@@ -27,6 +29,7 @@ import {AxiosRequestConfig} from "axios";
 export class ProductsController {
     private readonly logger = new Logger(ProductsController.name);
     private catalogServiceUrl = 'http://product-catalog-service:3000/products';
+    private recommendationServiceUrl = 'http://recommendation-service:8000';
 
     constructor(private readonly httpService: HttpService) {}
 
@@ -57,7 +60,55 @@ export class ProductsController {
             );
             return data;
         } catch (error: any) {
-            // ... (обробка помилок)
+            this.logger.error(`Error proxying GET /products/by-category/${category}`, error.stack);
+            throw new HttpException(
+                error.response?.data || 'Internal server error',
+                error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    }
+
+    @Patch(':id/view')
+    @UseGuards(JwtAuthGuard)
+    async trackView(@Param('id') id: string, @Req() req: Request) {
+        const { user } = req as any;
+        // 1. Інкрементуємо лічильник перегляду у каталозі
+        try {
+            await firstValueFrom(
+                this.httpService.patch(`${this.catalogServiceUrl}/${id}/view`),
+            );
+        } catch (error: any) {
+            this.logger.warn(`Could not increment view for product ${id}`);
+        }
+
+        // 2. Тригеримо рекомендацію через HTTP
+        try {
+            await firstValueFrom(
+                this.httpService.post(`${this.recommendationServiceUrl}/trigger`, {
+                    userId: user.userId,
+                    productId: id,
+                }),
+            );
+        } catch (error: any) {
+            this.logger.warn(`Could not trigger recommendation for product ${id}`);
+        }
+
+        return { status: 'ok' };
+    }
+
+    @Get('info')
+    async getProductByName(@Query('name') name: string) {
+        const url = `${this.catalogServiceUrl}/by-name/${encodeURIComponent(name)}`;
+        this.logger.log(`Proxying PUBLIC request to GET ${url}`);
+        try {
+            const { data } = await firstValueFrom(this.httpService.get(url));
+            return data;
+        } catch (error: any) {
+            this.logger.error(`Error proxying GET /products/info?name=${name}`, error.stack);
+            throw new HttpException(
+                error.response?.data || 'Internal server error',
+                error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+            );
         }
     }
 

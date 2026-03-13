@@ -10,10 +10,11 @@ COPY composer.lock composer.lock
 RUN composer install --ignore-platform-reqs --no-interaction --no-plugins --no-scripts --prefer-dist
 
 # Етап 2: Створення основного образу PHP
-FROM php:8.2-fpm-alpine as app
+FROM php:8.2-fpm as app
 
-# Встановлюємо залежності для розробки PostgreSQL
-RUN apk add --no-cache postgresql-dev
+# Встановлюємо libpq-dev для компіляції pdo_pgsql (без LLVM-залежностей)
+RUN apt-get update && apt-get install -y --no-install-recommends libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Встановлення розширень для Laravel
 RUN docker-php-ext-install pdo pdo_pgsql

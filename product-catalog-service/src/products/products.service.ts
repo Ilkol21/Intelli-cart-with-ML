@@ -37,9 +37,6 @@ export class ProductsService {
         return product;
     }
 
-    async findByCategory(category: string): Promise<Product[]> {
-        return this.productRepository.find({ where: { category } });
-    }
 
     // Оновлення продукту
     async update(id: string, updateProductDto: UpdateProductDto): Promise<Product> {
@@ -65,21 +62,31 @@ export class ProductsService {
         }
     }
     async findByName(name: string): Promise<Product | null> {
-        // Шукаємо товар, ігноруючи регістр
         return this.productRepository.findOne({ where: { name: Raw(alias => `LOWER(${alias}) = LOWER(:name)`, { name }) } });
     }
 
-    // --- ДОДАНО ---
     async findByCategory(category: string, currentProductId?: string): Promise<Product[]> {
-        // Шукаємо інші товари в тій самій категорії, виключаючи поточний, якщо він вказаний
         const whereClause: any = { category };
         if (currentProductId) {
             whereClause.id = Not(currentProductId);
         }
+        return this.productRepository.find({ where: whereClause, take: 5 });
+    }
 
+    async incrementViewCount(id: string): Promise<Product> {
+        await this.productRepository.increment({ id }, 'viewCount', 1);
+        return this.findOne(id);
+    }
+
+    async findPopularByCategory(category: string, excludeId?: string): Promise<Product[]> {
+        const whereClause: any = { category };
+        if (excludeId) {
+            whereClause.id = Not(excludeId);
+        }
         return this.productRepository.find({
             where: whereClause,
-            take: 5 // Обмежимо кількість рекомендацій
+            order: { viewCount: 'DESC' },
+            take: 5,
         });
     }
 

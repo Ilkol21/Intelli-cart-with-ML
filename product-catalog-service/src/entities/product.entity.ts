@@ -23,6 +23,9 @@ export class Product {
     @Column({ nullable: true })
     store: string;
 
+    @Column({ type: 'int', default: 0 })
+    viewCount: number;
+
     @CreateDateColumn()
     createdAt: Date;
 
