@@ -73,7 +73,15 @@ export class ProductsController {
     }
 
     @Put(':id')
-    update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto) {
+    @UseFileInterceptor()
+    update(
+        @Param('id') id: string,
+        @Body() updateProductDto: UpdateProductDto,
+        @UploadedFile() file: Express.Multer.File,
+    ) {
+        if (file) {
+            updateProductDto.imageUrl = `/uploads/${file.filename}`;
+        }
         return this.productsService.update(id, updateProductDto);
     }
 

@@ -163,11 +163,23 @@ export class ProductsController {
 
     @Put(':id')
     @UseGuards(JwtAuthGuard, AdminGuard)
-    async updateProduct(@Param('id') id: string, @Body() body: any) {
+    @UseInterceptors(FileInterceptor('image') as any)
+    async updateProduct(@Param('id') id: string, @Body() body: any, @UploadedFile() file: Express.Multer.File) {
         const url = `${this.catalogServiceUrl}/${id}`;
         this.logger.log(`Proxying ADMIN request to PUT ${url}`);
+
+        const formData = new FormData();
+        Object.keys(body).forEach(key => formData.append(key, body[key]));
+        if (file) {
+            formData.append('image', file.buffer, file.originalname);
+        }
+
         try {
-            const { data } = await firstValueFrom(this.httpService.put(url, body));
+            const { data } = await firstValueFrom(
+                this.httpService.put<any>(url, formData, {
+                    headers: formData.getHeaders() as any,
+                } as AxiosRequestConfig),
+            );
             return data;
         } catch (error: any) {
             this.logger.error(`Error proxying PUT /products/${id}`, error.stack);

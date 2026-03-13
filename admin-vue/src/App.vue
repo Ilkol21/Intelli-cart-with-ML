@@ -10,6 +10,7 @@ import { authStore } from './stores/auth'
       <nav v-if="authStore.token">
         <RouterLink to="/">Дашборд</RouterLink>
         <RouterLink to="/products">Товари</RouterLink>
+        <RouterLink to="/orders">Замовлення</RouterLink>
       </nav>
       <button v-if="authStore.token" @click="authStore.logout()" class="logout-button">
         Вийти

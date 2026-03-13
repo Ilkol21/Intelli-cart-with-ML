@@ -6,8 +6,6 @@ import type { Request } from 'express';
 
 @Controller('auth')
 export class AuthController {
-    // --- ВИПРАВЛЕННЯ ТУТ ---
-    // Звертаємось до нового веб-сервера, а не напряму до PHP
     private userServiceUrl = 'http://user-service-web/api/auth';
 
     constructor(private readonly httpService: HttpService) {}
