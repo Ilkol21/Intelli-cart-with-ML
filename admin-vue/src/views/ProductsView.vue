@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import apiClient from '../services/api';
 
 interface Product {
@@ -21,6 +21,31 @@ const editingProduct = ref<Product | null>(null);
 const editImageFile = ref<File | null>(null);
 const editImagePreview = ref<string>('');
 const saving = ref(false);
+
+const search = ref('');
+const filterCategory = ref('');
+const sortPrice = ref('');
+
+const categories = computed((): string[] =>
+  products.value
+    .reduce((acc: string[], p: Product) => {
+      if (p.category && !acc.includes(p.category)) acc.push(p.category);
+      return acc;
+    }, [])
+    .sort()
+);
+
+const filteredProducts = computed((): Product[] => {
+  const q = search.value.toLowerCase().trim();
+  let result = products.value.filter((p: Product) => {
+    const matchesSearch   = !q || p.name.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q);
+    const matchesCategory = !filterCategory.value || p.category === filterCategory.value;
+    return matchesSearch && matchesCategory;
+  });
+  if (sortPrice.value === 'asc')  result = [...result].sort((a, b) => a.price - b.price);
+  if (sortPrice.value === 'desc') result = [...result].sort((a, b) => b.price - a.price);
+  return result;
+});
 
 const fetchProducts = async () => {
   try {
@@ -124,8 +149,22 @@ onMounted(fetchProducts);
       <button type="submit">Додати товар</button>
     </form>
 
+    <!-- Фільтри -->
+    <div class="filters">
+      <input v-model="search" placeholder="Пошук за назвою або описом..." class="filter-input" />
+      <select v-model="filterCategory" class="filter-select">
+        <option value="">Всі категорії</option>
+        <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
+      </select>
+      <select v-model="sortPrice" class="filter-select">
+        <option value="">Без сортування</option>
+        <option value="asc">Ціна ↑</option>
+        <option value="desc">Ціна ↓</option>
+      </select>
+      <span class="filter-count">{{ filteredProducts.length }} / {{ products.length }}</span>
+    </div>
+
     <!-- Таблиця -->
-    <h3>Існуючі товари ({{ products.length }})</h3>
     <table class="product-table">
       <thead>
         <tr>
@@ -137,7 +176,10 @@ onMounted(fetchProducts);
         </tr>
       </thead>
       <tbody>
-        <tr v-for="product in products" :key="product.id">
+        <tr v-if="filteredProducts.length === 0">
+          <td colspan="5" style="text-align:center; color:#888; padding:2rem">Нічого не знайдено</td>
+        </tr>
+        <tr v-for="product in filteredProducts" :key="product.id">
           <td>
             <img v-if="product.imageUrl"
               :src="`http://localhost:8080${product.imageUrl}`"
@@ -208,6 +250,35 @@ onMounted(fetchProducts);
   padding: 6px 10px;
   border: 1px solid #ddd;
   border-radius: 6px;
+}
+.filters {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.filter-input {
+  flex: 1;
+  min-width: 200px;
+  padding: 7px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  outline: none;
+}
+.filter-input:focus { border-color: #3b82f6; }
+.filter-select {
+  padding: 7px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.filter-count {
+  font-size: 0.85rem;
+  color: #9ca3af;
+  white-space: nowrap;
 }
 .product-table {
   width: 100%;

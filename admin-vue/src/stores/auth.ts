@@ -6,14 +6,27 @@ import router from '@/router';
 
 export const authStore = reactive({
   token: localStorage.getItem('admin_token') || null,
-  user: null,
+  user: JSON.parse(localStorage.getItem('admin_user') || 'null') as any,
+
+  get role(): string {
+    return (this.user as any)?.role || '';
+  },
+
+  get isAdmin(): boolean {
+    return this.role === 'admin';
+  },
+
+  get isDelivery(): boolean {
+    return this.role === 'delivery';
+  },
 
   async login(credentials: { email: string; password: string }) {
     try {
       const response = await apiClient.post('/auth/login', credentials);
+      const role = response.data.user.role;
 
-      if (response.data.user.role !== 'admin') {
-        throw new Error('You are not an administrator.');
+      if (role !== 'admin' && role !== 'delivery') {
+        throw new Error('Access denied. Only admins and couriers can log in here.');
       }
       this.setToken(response.data.access_token, response.data.user);
       return response.data;
@@ -34,13 +47,12 @@ export const authStore = reactive({
     this.token = newToken;
     this.user = userData;
 
-    // ↓ ↓ ↓ Приберіть цей рядок, він більше не потрібен ↓ ↓ ↓
-    // setAuthHeader(newToken);
-
     if (newToken) {
       localStorage.setItem('admin_token', newToken);
+      localStorage.setItem('admin_user', JSON.stringify(userData));
     } else {
       localStorage.removeItem('admin_token');
+      localStorage.removeItem('admin_user');
     }
   },
 });

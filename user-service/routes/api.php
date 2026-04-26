@@ -16,4 +16,7 @@ Route::group(['prefix' => 'auth'], function () {
 
 Route::group(['prefix' => 'admin'], function () {
     Route::get('/stats/users', [AdminController::class, 'stats']);
+    Route::get('/users', [AdminController::class, 'users']);
+    Route::patch('/users/{id}/role', [AdminController::class, 'updateRole']);
+    Route::patch('/users/{id}/status', [AdminController::class, 'updateStatus']);
 });

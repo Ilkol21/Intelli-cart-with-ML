@@ -52,7 +52,7 @@ services:
     build:
       context: ./user-service
     container_name: user-service
-    command: sh -c "php artisan migrate --force && php-fpm"
+    command: sh -c "php artisan migrate --force && php artisan db:seed --force && php-fpm"
     restart: unless-stopped
     depends_on:
       postgres-db:

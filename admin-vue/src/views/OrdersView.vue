@@ -12,11 +12,18 @@ interface OrderItem {
 interface Order {
   id: string;
   userId: string;
+  deliveryPersonId: string | null;
   status: string;
   latitude: number;
   longitude: number;
   createdAt: string;
   items: OrderItem[];
+}
+
+interface Courier {
+  id: number;
+  name: string;
+  email: string;
 }
 
 const STATUSES = ['pending', 'confirmed', 'in_progress', 'delivered', 'cancelled'];
@@ -38,10 +45,13 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const orders = ref<Order[]>([]);
+const couriers = ref<Courier[]>([]);
 const loading = ref(true);
 const error = ref('');
 const filterStatus = ref('');
 const updatingId = ref<string | null>(null);
+const assigningId = ref<string | null>(null);
+const selectedCourier = ref<Record<string, string>>({});
 
 const filteredOrders = computed(() =>
   filterStatus.value
@@ -53,13 +63,34 @@ const fetchOrders = async () => {
   loading.value = true;
   error.value = '';
   try {
-    const { data } = await apiClient.get('/admin/orders');
-    orders.value = data;
+    const [ordersRes, usersRes] = await Promise.all([
+      apiClient.get('/admin/orders'),
+      apiClient.get('/admin/users'),
+    ]);
+    orders.value = ordersRes.data;
+    couriers.value = usersRes.data.filter((u: Courier & { role: string; is_active: boolean }) => u.role === 'delivery' && u.is_active);
+    orders.value.forEach(o => {
+      selectedCourier.value[o.id] = o.deliveryPersonId ?? '';
+    });
   } catch (err) {
     error.value = 'Не вдалося завантажити замовлення';
     console.error(err);
   } finally {
     loading.value = false;
+  }
+};
+
+const assignCourier = async (order: Order) => {
+  const courierId = selectedCourier.value[order.id];
+  if (!courierId) return;
+  assigningId.value = order.id;
+  try {
+    await apiClient.patch(`/admin/orders/${order.id}/assign`, { deliveryPersonId: courierId });
+    order.deliveryPersonId = courierId;
+  } catch (err) {
+    alert('Не вдалося призначити кур\'єра');
+  } finally {
+    assigningId.value = null;
   }
 };
 
@@ -114,6 +145,7 @@ onMounted(fetchOrders);
           <th>Сума</th>
           <th>Статус</th>
           <th>Змінити статус</th>
+          <th>Кур'єр</th>
         </tr>
       </thead>
       <tbody>
@@ -142,6 +174,24 @@ onMounted(fetchOrders);
               <option v-for="s in STATUSES" :key="s" :value="s">{{ STATUS_LABELS[s] }}</option>
             </select>
             <span v-if="updatingId === order.id" style="font-size:0.75rem; color:#888; margin-left:6px">...</span>
+          </td>
+          <td>
+            <div style="display:flex; gap:6px; align-items:center">
+              <select
+                v-model="selectedCourier[order.id]"
+                style="padding:4px 8px; border-radius:6px; border:1px solid #ddd; font-size:0.85rem"
+              >
+                <option value="">— не призначено —</option>
+                <option v-for="c in couriers" :key="c.id" :value="String(c.id)">{{ c.name }}</option>
+              </select>
+              <button
+                :disabled="!selectedCourier[order.id] || assigningId === order.id"
+                @click="assignCourier(order)"
+                style="padding:4px 10px; border-radius:6px; border:none; background:#3b82f6; color:white; cursor:pointer; font-size:0.82rem; white-space:nowrap"
+              >
+                {{ assigningId === order.id ? '...' : '✓' }}
+              </button>
+            </div>
           </td>
         </tr>
       </tbody>

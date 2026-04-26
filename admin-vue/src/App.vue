@@ -8,9 +8,16 @@ import { authStore } from './stores/auth'
     <div class="wrapper">
       <h1>Intelli-Cart Admin</h1>
       <nav v-if="authStore.token">
-        <RouterLink to="/">Дашборд</RouterLink>
-        <RouterLink to="/products">Товари</RouterLink>
-        <RouterLink to="/orders">Замовлення</RouterLink>
+        <template v-if="authStore.isAdmin">
+          <RouterLink to="/">Дашборд</RouterLink>
+          <RouterLink to="/products">Товари</RouterLink>
+          <RouterLink to="/orders">Замовлення</RouterLink>
+          <RouterLink to="/users">Користувачі</RouterLink>
+          <RouterLink to="/courier">Кур'єри</RouterLink>
+        </template>
+        <template v-else-if="authStore.isDelivery">
+          <RouterLink to="/courier">Мої замовлення</RouterLink>
+        </template>
       </nav>
       <button v-if="authStore.token" @click="authStore.logout()" class="logout-button">
         Вийти

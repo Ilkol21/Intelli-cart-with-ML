@@ -2,65 +2,49 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller; // <-- Цей рядок був відсутній
-use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\LoginRequest;
+use App\Http\Requests\RegisterRequest;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Validator;
-use Tymon\JWTAuth\Facades\JWTAuth;
 
-class AuthController extends Controller // <-- Важливо, щоб тут було 'extends Controller'
+class AuthController extends Controller
 {
-    public function __construct() {
+    public function __construct()
+    {
         $this->middleware('auth:api', ['except' => ['login', 'register']]);
     }
 
-    public function register(Request $request) {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|between:2,100',
-            'email' => 'required|string|email|max:100|unique:users',
-            'password' => 'required|string|confirmed|min:6',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json($validator->errors(), 400);
-        }
-
+    public function register(RegisterRequest $request)
+    {
         $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password)
+            'name'     => $request->name,
+            'email'    => $request->email,
+            'password' => Hash::make($request->password),
         ]);
 
         return response()->json([
             'message' => 'User successfully registered',
-            'user' => $user
+            'user'    => $user,
         ], 201);
     }
 
-    public function login(Request $request){
-        $validator = Validator::make($request->all(), [
-            'email' => 'required|email',
-            'password' => 'required|string',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json($validator->errors(), 422);
-        }
-
-        if (! $token = auth('api')->attempt($validator->validated())) {
+    public function login(LoginRequest $request)
+    {
+        if (! $token = auth('api')->attempt($request->validated())) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
-        return $this->createNewToken($token);
-    }
+        if (! auth('api')->user()->is_active) {
+            auth('api')->logout();
+            return response()->json(['error' => 'Your account has been disabled.'], 403);
+        }
 
-    protected function createNewToken($token){
         return response()->json([
             'access_token' => $token,
-            'token_type' => 'bearer',
-            'expires_in' => auth('api')->factory()->getTTL() * 60,
-            'user' => auth('api')->user()
+            'token_type'   => 'bearer',
+            'expires_in'   => auth('api')->factory()->getTTL() * 60,
+            'user'         => auth('api')->user(),
         ]);
     }
 }
